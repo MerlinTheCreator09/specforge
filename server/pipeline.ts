@@ -43,7 +43,7 @@ export async function runPipeline(specFile: UploadedFile, blueprintFile: Uploade
   if (!spec.course_outcomes.length && !blueprint?.course_outcomes.length) throw new ApiError(422, "NO_COURSE_OUTCOMES", "No course outcomes were found in the uploaded files.");
 
   const model = buildModel(spec, blueprint, inputId);
-  const [mapped, review] = await Promise.all([generateMap(model, cfg), reviewText(model, specText.text, cfg)]);
+  const [mapped, review] = await Promise.all([generateMap(model, cfg, spec.old_map), reviewText(model, specText.text, cfg)]);
   model.map = mapped.map;
   for (const co of model.course_outcomes) co.bloom_level = mapped.bloom[co.id] ?? (co.bloom_level || 1);
   model.summary = review.summary;

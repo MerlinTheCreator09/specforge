@@ -5,7 +5,7 @@ import { bloomCeiling, COLUMNS, poPso, rules } from "./config.js";
 import { isPracticalComponent, normaliseCoId, norm, teachingTotal, type CourseModel } from "./model.js";
 import type { Defect, ParsedBlueprint, ParsedSpec } from "./schemas.js";
 import { SAMPLE_STRINGS, SAMPLE_TOKENS, detectTemplate } from "./template.js";
-import type { MapFix } from "./mapper.js";
+import { courseUsesTools, type MapFix } from "./mapper.js";
 
 const d = (code: Defect["code"], source: Defect["location"]["source"], section: number | null, refs: string[], description: string, fix: string): Defect =>
   ({ code, location: { source, section, refs }, description, fix });
@@ -30,6 +30,7 @@ export function findInputDefects(spec: ParsedSpec, bp: ParsedBlueprint | null, m
     for (const id of defined) if (!oldRows.has(id)) out.push(d("CO_MISSING_IN_TABLE", "spec", 5, [id], `${id} is a course outcome but has no row in the CO-PO-PSO map.`, `Added a ${id} row to the regenerated map.`));
     for (const id of oldRows.keys()) if (!defined.has(id)) out.push(d("CO_EXTRA_IN_TABLE", "spec", 5, [id], `The CO-PO-PSO map has a row for ${id}, which is not a defined course outcome.`, `Removed the ${id} row.`));
   }
+  const tools = courseUsesTools(model);
   for (const co of model.course_outcomes) {
     const values = oldRows.get(co.id);
     if (!values) continue;
@@ -39,7 +40,8 @@ export function findInputDefects(spec: ParsedSpec, bp: ParsedBlueprint | null, m
       const v = values[i];
       if (v == null || v === 0 || !COLUMNS.includes(col)) return;
       if (v > bloomCeiling(col, co.bloom_level || 1)) overBloom.push(`${col}=${v}`);
-      else if ((rules.evidence_required.includes(col) || rules.tool_use_columns.includes(col)) && !model.map[co.id]?.[col]) unsupported.push(`${col}=${v}`);
+      else if (rules.tool_use_columns.includes(col) && !tools) unsupported.push(`${col}=${v}`);
+      else if (rules.evidence_required.includes(col) && !model.map[co.id]?.[col]) unsupported.push(`${col}=${v}`);
     });
     if (overBloom.length) out.push(d("MAPPING_BLOOM_MISMATCH", "spec", 5, [co.id, ...overBloom.map((x) => x.split("=")[0])], `${co.id} (Bloom L${co.bloom_level}) is mapped ${overBloom.join(", ")}, stronger than its Bloom's level supports.`, `Re-derived ${co.id}'s map within its Bloom's ceiling.`));
     if (unsupported.length) out.push(d("MAPPING_UNSUPPORTED", "spec", 5, [co.id, ...unsupported.map((x) => x.split("=")[0])], `${co.id} is mapped ${unsupported.join(", ")} without evidence in the syllabus or assessment.`, `Left those cells blank in the regenerated map.`));
@@ -103,8 +105,10 @@ export function findInputDefects(spec: ParsedSpec, bp: ParsedBlueprint | null, m
 
   // ----- Header and syllabus agreement with the blueprint -----
   if (bp) {
-    if (bp.code && norm(bp.code) !== norm(spec.code)) out.push(d("LABEL_OR_TITLE_MISMATCH", "spec", null, [], `Course code "${spec.code}" in the spec does not match "${bp.code}" in the blueprint.`, "Kept the spec's code; flagged the conflict."));
-    if (bp.title && norm(bp.title) !== norm(spec.title)) out.push(d("LABEL_OR_TITLE_MISMATCH", "spec", null, [], `Course title "${spec.title}" in the spec does not match "${bp.title}" in the blueprint.`, "Kept the spec's title; flagged the conflict."));
+    // Compare only real values: a parser that picked up the document heading must not create a defect.
+    const looksLikeHeading = (t: string) => /blueprint|question paper|examination details/i.test(t);
+    if (bp.code && /\d/.test(bp.code) && norm(bp.code) !== norm(spec.code)) out.push(d("LABEL_OR_TITLE_MISMATCH", "spec", null, [], `Course code "${spec.code}" in the spec does not match "${bp.code}" in the blueprint.`, "Kept the spec's code; flagged the conflict."));
+    if (bp.title && !looksLikeHeading(bp.title) && norm(bp.title) !== norm(spec.title)) out.push(d("LABEL_OR_TITLE_MISMATCH", "spec", null, [], `Course title "${spec.title}" in the spec does not match "${bp.title}" in the blueprint.`, "Kept the spec's title; flagged the conflict."));
     if (bp.course_outcomes.length) {
       const specCos = new Map(spec.course_outcomes.map((c) => [normaliseCoId(c.id) ?? c.id, c.statement]));
       bp.course_outcomes.forEach((c, i) => {

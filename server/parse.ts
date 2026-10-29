@@ -37,7 +37,7 @@ export async function parseBlueprint(text: string, cfg: LlmConfig): Promise<Pars
   const prompt = `You extract a question-paper blueprint into JSON. ${DATA_ONLY}
 
 Return one JSON object with exactly these keys:
-- title, code, programme, examination, duration (strings as written; "" when absent), maximum_marks (number or null).
+- title and code: the values of the "Course Title" and "Course Code" rows (never the document heading). programme, examination, duration (strings as written; "" when absent), maximum_marks (number or null).
 - units: [{ number, title (short unit name, the text before the first colon), content (the topic text after it, without trailing hour or mark numbers), hours, marks }]. Read hours and marks from the cells that follow each unit row.
 - stated_total_marks: the printed total marks of the unit table (number or null).
 - course_outcomes: [{ id as "CO-<n>" (convert "CO1" to "CO-1"), statement }].
