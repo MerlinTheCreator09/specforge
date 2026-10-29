@@ -46,6 +46,8 @@ const view = (rec: SpecRecord, role: string) => ({
   updated_at: rec.updated_at,
   files: rec.files,
   model: rec.result.model,
+  // The uploaded text as parsed, for the "original vs corrected" views.
+  original: { summary: rec.result.sources.spec.summary, course_outcomes: rec.result.sources.spec.course_outcomes, units: rec.result.sources.spec.units, old_map: rec.result.sources.spec.old_map },
   output: rec.result.output,
   report: rec.result.report,
   html: renderSpec(rec.result.model, { watermark: rec.status !== "Approved" }),

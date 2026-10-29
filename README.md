@@ -3,7 +3,7 @@
 Built for the SpecForge Buildathon (RUAS Peenya, 29 Oct 2026) from the event starter.
 
 - **Track:** coder (own editor with AI help)
-- **AI tools used:** Claude Code (Anthropic) for writing code; Claude via the Anthropic API inside the app (bring your own key)
+- **AI tools used:** Claude Code (Anthropic) for writing code; Google Stitch for the UI design (Obsidian theme), converted to React + Tailwind; Claude via the Anthropic API inside the app (bring your own key)
 - **Run:** `npm install`, then `npm run dev` (web on 5173, API on 3001) or `npm start` (API only). With the app running: `npm run verify -- anthropic YOUR_KEY`.
 
 ## Backend
