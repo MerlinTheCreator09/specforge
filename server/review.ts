@@ -10,6 +10,7 @@ const AI_CODES = ["TYPO_OR_FORMAT", "SUMMARY_SYLLABUS_MISMATCH", "LABEL_OR_TITLE
 
 const AiReviewSchema = z.object({
   summary: z.string().min(20).max(3000),
+  summary_check: z.object({ missing_unit_themes: z.array(z.string().max(200)).max(20), unsupported_topics: z.array(z.string().max(200)).max(10) }),
   resources: z.object({ essential: z.array(z.string()), recommended: z.array(z.string()), magazines: z.array(z.string()), websites: z.array(z.string()), other: z.array(z.string()) }),
   problems: z.array(z.object({
     code: z.enum(AI_CODES),
@@ -29,18 +30,23 @@ Tasks:
 2. "resources": the course resources from the existing spec, one entry per reference, with spelling mistakes in author names, publisher names and URLs corrected (for example a misspelt publisher, a broken URL with a space in it, stray list numbers). Do not add or remove references.
 3. "problems": real problems you can see in the EXISTING SPEC text. Allowed codes:
    - TYPO_OR_FORMAT: a misspelt author or publisher name, a broken URL, or stray numbering in the Course Resources (section 9). One entry per wrong item. Do not report headings, capitalisation or style.
-   - SUMMARY_SYLLABUS_MISMATCH: the original summary mentions topics no unit covers, or misses unit themes (at most one entry, section 1).
    - LABEL_OR_TITLE_MISMATCH: a label that names the wrong thing, such as a lab exercise label that does not match its unit's title, or a unit title that differs between the spec and the blueprint.
    - PLACEHOLDER_TEXT: text left over from a different course or a template.
    For each: "found" = the exact wrong text copied character-for-character from the existing spec (short, e.g. one word or phrase), "section" = the spec section number (1 Summary, 2 Size and Credits, 3 Course Outcomes, 4 Course Contents, 5 Course Map, 6 Teaching, 7 Assessment, 8 Achieving COs, 9 Resources) or null for the header, "refs" = items involved such as "Unit-3" or "CO-2" (may be empty), "description" and "fix" one sentence each.
+   Do not report summary problems here; use summary_check.
    Only report problems you are certain of. Do not report differences in hours, marks, weightages, CO tables or mappings; another step checks those. An empty list is fine.
+
+4. "summary_check": compare the ORIGINAL Course Summary in the existing spec with the units, one unit at a time.
+   missing_unit_themes = the titles (copied exactly) of units whose theme the original summary does not describe.
+   unsupported_topics = topics the original summary claims that no unit covers, each a short phrase copied exactly from the original summary.
+   Use empty lists when the summary matches the syllabus.
 
 Units from the source of truth:
 ${model.units.map((u) => `Unit ${u.number} ${u.title}: ${u.content}`).join("\n")}
 
 ${fence("existing_course_spec", specText)}
 
-Return JSON: { "summary": "...", "resources": { "essential": [], "recommended": [], "magazines": [], "websites": [], "other": [] }, "problems": [] }`;
+Return JSON: { "summary": "...", "resources": { "essential": [], "recommended": [], "magazines": [], "websites": [], "other": [] }, "problems": [], "summary_check": { "missing_unit_themes": [], "unsupported_topics": [] } }`;
 
   const ai = await generateJson(prompt, AiReviewSchema, cfg);
   const source = norm(specText);
@@ -48,11 +54,23 @@ Return JSON: { "summary": "...", "resources": { "essential": [], "recommended": 
   const seen = new Set<string>();
   for (const p of ai.problems) {
     // Drop anything the model cannot point to in the actual document.
-    if (p.code !== "SUMMARY_SYLLABUS_MISMATCH" && (!norm(p.found) || !source.includes(norm(p.found)))) continue;
+    if (p.code === "SUMMARY_SYLLABUS_MISMATCH" || !norm(p.found) || !source.includes(norm(p.found))) continue;
     const key = `${p.code}|${norm(p.found)}`;
     if (seen.has(key)) continue;
     seen.add(key);
     defects.push({ code: p.code, location: { source: "spec", section: p.section, refs: p.refs }, description: p.description, fix: p.fix });
+  }
+  // Summary vs syllabus, verified: missing themes must be real unit titles, unsupported topics must be quoted from the summary.
+  const original = norm(model.summary);
+  const missingUnits = model.units.filter((u) => ai.summary_check.missing_unit_themes.some((t) => norm(t) && (norm(u.title).includes(norm(t)) || norm(t).includes(norm(u.title)))));
+  const extras = ai.summary_check.unsupported_topics.filter((t) => norm(t).length > 3 && original.includes(norm(t)));
+  if (missingUnits.length || extras.length) {
+    const parts = [
+      missingUnits.length ? `does not describe ${missingUnits.map((u) => `Unit ${u.number} (${u.title})`).join(", ")}` : "",
+      extras.length ? `mentions ${extras.map((t) => `"${t}"`).join(", ")}, which no unit covers` : "",
+    ].filter(Boolean);
+    defects.push({ code: "SUMMARY_SYLLABUS_MISMATCH", location: { source: "spec", section: 1, refs: missingUnits.map((u) => `Unit-${u.number}`) },
+      description: `The course summary ${parts.join(" and ")}.`, fix: "Rewrote the summary to describe every unit of the syllabus." });
   }
   const keepCount = (a: string[], b: string[]) => (a.length === b.length ? a : b);
   const r = model.resources;

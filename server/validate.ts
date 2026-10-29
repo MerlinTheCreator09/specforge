@@ -57,9 +57,19 @@ export function findInputDefects(spec: ParsedSpec, bp: ParsedBlueprint | null, m
       else if (!covered.get(id)!.length) out.push(d("CO_ASSESSMENT_MISMATCH", "spec", 7, [id], `${id} is not assessed in any component.`, `Assigned ${id} to an assessment component.`));
     }
     const comps = spec.assessment.groups.flatMap((g) => g.components);
-    for (const c of comps.filter((c) => isPracticalComponent(c.name, c.practical) && /lab|practical/i.test(c.name))) {
-      const assessesDefined = [...covered.entries()].some(([id, list]) => defined.has(id) && list.includes(c.name));
-      if (!assessesDefined) out.push(d("CO_ASSESSMENT_MISMATCH", "spec", 7, [c.name], `The "${c.name}" component does not assess any defined course outcome.`, `Assigned the COs with lab or tool work to "${c.name}".`));
+    // Lab components (lab CE, lab exam / LSEE) that assess no defined CO: one finding for the table.
+    const isLab = (c: { name: string; practical: boolean }) => c.practical || /lab|practical|\blse/i.test(c.name);
+    const emptyLabs = comps.filter(isLab).filter((c) => ![...covered.entries()].some(([id, list]) => defined.has(id) && list.includes(c.name))).map((c) => c.name);
+    if (emptyLabs.length) out.push(d("CO_ASSESSMENT_MISMATCH", "spec", 7, emptyLabs, `The laboratory component${emptyLabs.length > 1 ? "s" : ""} ${emptyLabs.map((n) => `"${n}"`).join(" and ")} assess${emptyLabs.length > 1 ? "" : "es"} no defined course outcome.`, "Assigned the COs with lab or tool work to the laboratory components."));
+    // Mapping rule applied to the spec's own tables: a CO mapped 2 or 3 to PO-3/PO-5 must be assessed in a practical or assignment component.
+    const practicalNames = new Set(comps.filter((c) => isPracticalComponent(c.name, c.practical)).map((c) => c.name));
+    for (const [id, values] of oldRows) {
+      if (!defined.has(id) || !covered.has(id)) continue;
+      const strong = oldCols.filter((col, i) => rules.practical_required_columns.includes(col) && (values[i] ?? 0) >= 2);
+      const list = covered.get(id)!;
+      if (strong.length && !list.some((n) => practicalNames.has(n))) {
+        out.push(d("CO_ASSESSMENT_MISMATCH", "spec", 7, [id, ...strong], `${id} is mapped ${strong.map((c) => `${c}=${values[oldCols.indexOf(c)]}`).join(", ")} but is assessed only in ${list.join(", ") || "no component"}, with no practical or assignment component.`, `Assessed ${id} in a laboratory component.`));
+      }
     }
   }
   const groupWeights = spec.assessment.groups.map((g) => g.weight_percent);
