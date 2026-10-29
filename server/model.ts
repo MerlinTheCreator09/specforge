@@ -92,7 +92,7 @@ export function buildModel(spec: ParsedSpec, blueprint: ParsedBlueprint | null, 
   });
 
   // Coverage: keep only defined COs; components by name.
-  const groups = resolveWeights(spec.assessment.groups);
+  const groups = resolveWeights(structuredClone(spec.assessment.groups));
   const compNames = new Set(groups.flatMap((g) => g.components.map((c) => c.name)));
   const coverage: Record<string, string[]> = {};
   for (const co of course_outcomes) coverage[co.id] = [];
@@ -114,11 +114,12 @@ export function buildModel(spec: ParsedSpec, blueprint: ParsedBlueprint | null, 
     course_outcomes,
     units,
     map: {},
-    teaching: spec.teaching,
+    teaching: structuredClone(spec.teaching),
     teaching_total: teachingTotal(spec.teaching),
     assessment: { paragraphs_before: spec.assessment.paragraphs_before, paragraphs_after: spec.assessment.paragraphs_after, groups, coverage },
-    achieving: spec.achieving,
-    resources: spec.resources,
+    // Copies, so corrections never rewrite the parsed source the defect checks compare against.
+    achieving: structuredClone(spec.achieving),
+    resources: structuredClone(spec.resources),
   };
 }
 

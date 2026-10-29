@@ -71,7 +71,8 @@ export default function Upload({ me, busy, current, run, open, onSettings }: Pro
 
       {scorer && (
         <div className="card mt-6">
-          <CardHead icon="task_alt" title="Scorer call succeeded" sub={`${scorer.output.course_outcomes.length} COs, ${scorer.output.units.length} units, ${scorer.output.defects.length} defects, template ${scorer.output.template}, input_id ${scorer.output.input_id}`} />
+          <CardHead icon="task_alt" title={`Scorer call succeeded: ${scorer.output.course.code} ${scorer.output.course.title}`} sub={`${scorer.output.course.credits_ltp} · ${scorer.output.template} template · ${scorer.output.course_outcomes.length} COs · ${scorer.output.units.length} units · ${scorer.output.defects.length} defects · input_id ${scorer.output.input_id}`} />
+          {scorer.report?.notes?.filter((n: string) => n.startsWith("Heads-up")).map((n: string) => <p key={n} className="mb-3 rounded-lg border border-warning px-3 py-2 text-body-sm text-warning flex gap-2"><Icon name="warning" className="shrink-0" />{n}</p>)}
           <Submission body={{ source: "scorer" }} disabled={me?.role !== "author"} />
         </div>
       )}
