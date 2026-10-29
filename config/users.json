@@ -1,0 +1,5 @@
+[
+  { "email": "author@specforge.local", "name": "Course Author", "role": "author" },
+  { "email": "reviewer@specforge.local", "name": "Course Reviewer", "role": "reviewer" },
+  { "email": "hod@specforge.local", "name": "Head of Department", "role": "hod" }
+]

@@ -1,0 +1,20 @@
+{
+  "_about": "Reference rules for mapping and validation. Configuration, not course content.",
+  "bloom_ceiling": {
+    "_about": "Highest level a CO of a given Bloom level (1-6) may map to each outcome column. Columns not listed allow 3.",
+    "PO-2": [1, 2, 2, 3, 3, 3],
+    "PO-3": [1, 1, 2, 3, 3, 3],
+    "PO-4": [1, 1, 2, 3, 3, 3],
+    "PO-5": [1, 1, 3, 3, 3, 3],
+    "PSO-2": [1, 1, 2, 3, 3, 3]
+  },
+  "evidence_required": ["PO-6", "PO-7", "PO-8", "PO-9", "PO-10"],
+  "tool_use_columns": ["PO-5"],
+  "practical_required_columns": ["PO-3", "PO-5"],
+  "tool_use_keywords": ["lab", "laboratory", "program", "programming", "python", "java", "c++", "ide", "software", "tool", "simulation", "implement", "code", "matlab"],
+  "practical_component_keywords": ["lab", "practical", "assignment", "project", "workshop", "lse", "lsee"],
+  "template_sections": [
+    "Course Summary", "Course Size and Credits", "Course Outcomes", "Course Contents", "Course Map",
+    "Course Teaching and Learning Methods", "Course Assessment and Reassessment", "Achieving COs", "Course Resources"
+  ]
+}

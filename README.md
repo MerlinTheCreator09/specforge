@@ -1,4 +1,38 @@
-# SpecForge starter
+# SpecForge - Course Specification Builder
+
+Built for the SpecForge Buildathon (RUAS Peenya, 29 Oct 2026) from the event starter.
+
+- **Track:** coder (own editor with AI help)
+- **AI tools used:** Claude Code (Anthropic) for writing code; Claude via the Anthropic API inside the app (bring your own key)
+- **Run:** `npm install`, then `npm run dev` (web on 5173, API on 3001) or `npm start` (API only). With the app running: `npm run verify -- anthropic YOUR_KEY`.
+
+## Backend
+
+| Route (under `/api/v1`) | Who | What |
+| --- | --- | --- |
+| `GET /health`, `GET /llm-check` | anyone | status; test the AI key |
+| `POST /generate` | anyone | multipart `spec` (+ optional `blueprint`) -> `{ output, html, report }`. The scorer's route |
+| `POST /parse` | Author | structured data extracted from the uploads |
+| `GET /users`, `GET /reference` | anyone | seeded users for the role switcher; PO/PSO/Bloom reference |
+| `GET /specs`, `GET /specs/:id` | any user | list; full spec with HTML preview, report, log, comments and allowed actions |
+| `POST /specs` | Author | upload and generate a new Draft |
+| `PATCH /specs/:id` | Author, Draft/Returned only | edit sections (403 otherwise) |
+| `POST /specs/:id/template` | Author, Draft/Returned only | override the template with a reason |
+| `POST /specs/:id/transitions` | by role | `submit` (Author), `start_review`/`forward`/`return` (Reviewer), `approve`/`return` (HOD) |
+| `POST /specs/:id/comments` | any user | comment on a section (1-9) |
+| `GET /specs/:id/export/{spec.html,specforge_output.json,validation_report.html}` | any user | downloads; `?inline=1` to preview |
+
+Identity: send `x-user-email` with one of the seeded users in `config/users.json`; the server takes the role from that record.
+AI key: `x-llm-provider`, `x-llm-key`, `x-llm-model` headers on AI routes only. The key is never stored, logged or returned.
+
+Pipeline: extract text (mammoth / word-extractor / pdf-parse / cheerio) -> AI parses the spec and blueprint into Zod-validated JSON ->
+source-of-truth merge -> Bloom's level from the verb list -> AI map, then code enforces every mapping rule (Bloom ceilings in
+`config/rules.json`, PO-5 tool use, quoted evidence for PO-6..PO-10, PSO-1/PSO-2 only) -> plain-code defect rules + AI text review
+(each AI finding must quote text that exists in the input) -> official template filled with cheerio -> validation report V1-V10.
+
+---
+
+## Starter notes
 
 Participant portal (sign in, prompts, submit): **https://specforge-arena.vercel.app**
 

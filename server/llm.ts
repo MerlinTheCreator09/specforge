@@ -19,6 +19,13 @@ export function configFromRequest(req: Request): LlmConfig {
   return { provider, key, model: model || DEFAULT_MODELS[provider] };
 }
 
+const TIMEOUT_MS = 180_000;
+
+// Network failures and timeouts: a fixed message, never the request (which carries the key).
+function networkError(): never {
+  throw new ApiError(504, "PROVIDER_UNREACHABLE", "Could not reach the AI provider in time. Try again.");
+}
+
 function stripFences(text: string): string {
   return text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
 }
@@ -27,7 +34,7 @@ async function callProvider(prompt: string, cfg: LlmConfig): Promise<string> {
   if (cfg.provider === "gemini") {
     try {
       const ai = new GoogleGenAI({ apiKey: cfg.key });
-      const r = await ai.models.generateContent({ model: cfg.model, contents: prompt, config: { responseMimeType: "application/json" } });
+      const r = await ai.models.generateContent({ model: cfg.model, contents: prompt, config: { responseMimeType: "application/json", abortSignal: AbortSignal.timeout(TIMEOUT_MS) } });
       return r.text ?? "";
     } catch (e: any) {
       const status = Number(e?.status ?? e?.code ?? 0);
@@ -40,8 +47,9 @@ async function callProvider(prompt: string, cfg: LlmConfig): Promise<string> {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": cfg.key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: cfg.model, max_tokens: 8000, messages: [{ role: "user", content: prompt }] }),
-    });
+      body: JSON.stringify({ model: cfg.model, max_tokens: 16000, messages: [{ role: "user", content: prompt }] }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    }).catch(networkError);
     if (r.status === 429 || r.status === 529) throw new ApiError(429, "RATE_LIMITED", "The AI provider says too many requests. Wait a minute or switch model.");
     if (r.status === 401 || r.status === 403) throw new ApiError(401, "BAD_KEY", "The provider rejected this key. Check Settings.");
     if (!r.ok) throw new ApiError(502, "PROVIDER_ERROR", `The AI provider failed (HTTP ${r.status}). Check the model name.`);
@@ -52,7 +60,8 @@ async function callProvider(prompt: string, cfg: LlmConfig): Promise<string> {
     method: "POST",
     headers: { Authorization: `Bearer ${cfg.key}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: cfg.model, messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } }),
-  });
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  }).catch(networkError);
   if (r.status === 429) throw new ApiError(429, "RATE_LIMITED", "The AI provider says too many requests. Wait a minute or switch model.");
   if (r.status === 401 || r.status === 403) throw new ApiError(401, "BAD_KEY", "The provider rejected this key. Check Settings.");
   if (!r.ok) throw new ApiError(502, "PROVIDER_ERROR", `The AI provider failed (HTTP ${r.status}). Check the model name.`);
