@@ -9,7 +9,7 @@ import { ApiError } from "./envelope.js";
 export type Provider = "gemini" | "openrouter" | "anthropic";
 export type LlmConfig = { provider: Provider; key: string; model: string };
 
-export const DEFAULT_MODELS = { gemini: "gemini-2.5-flash", openrouter: "google/gemini-2.5-flash", anthropic: "claude-opus-5-5" } as const;
+export const DEFAULT_MODELS = { gemini: "gemini-2.5-flash", openrouter: "google/gemini-2.5-flash", anthropic: "claude-sonnet-5-5" } as const;
 
 export function configFromRequest(req: Request): LlmConfig {
   const provider = String(req.header("x-llm-provider") ?? "").toLowerCase();
@@ -71,8 +71,32 @@ async function callAnthropic(prompt: string, cfg: LlmConfig): Promise<string> {
   }
 }
 
+const RETRYABLE = new Set(["RATE_LIMITED", "PROVIDER_ERROR", "PROVIDER_UNREACHABLE"]);
+const RETRY_DELAYS_MS = [2_000, 5_000, 12_000];
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Busy or flaky providers (503 "high demand", 429, 5xx, timeouts) are usually fine a few seconds later.
+// Anthropic's SDK retries on its own; Gemini and OpenRouter get the same treatment here. If a chosen Gemini model
+// stays overloaded, fall back once to the default Gemini model so a scorer run still completes.
 async function callProvider(prompt: string, cfg: LlmConfig): Promise<string> {
   if (cfg.provider === "anthropic") return callAnthropic(prompt, cfg);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await callOnce(prompt, cfg);
+    } catch (e) {
+      if (!(e instanceof ApiError) || !RETRYABLE.has(e.code)) throw e;
+      if (attempt < RETRY_DELAYS_MS.length) { await sleep(RETRY_DELAYS_MS[attempt]); continue; }
+      const fallback = DEFAULT_MODELS[cfg.provider];
+      if (cfg.model !== fallback) {
+        console.error(`[llm] ${cfg.provider} ${cfg.model} still failing; trying ${fallback}`);
+        return callProvider(prompt, { ...cfg, model: fallback });
+      }
+      throw e;
+    }
+  }
+}
+
+async function callOnce(prompt: string, cfg: LlmConfig): Promise<string> {
   if (cfg.provider === "gemini") {
     try {
       const ai = new GoogleGenAI({ apiKey: cfg.key });
