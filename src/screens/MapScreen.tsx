@@ -1,15 +1,21 @@
 // Step 3: the CO-PO-PSO matrix. Cells coloured by strength, justification on hover/select, Author can edit.
 import { useEffect, useState } from "react";
 import { call } from "../api";
-import { CardHead, cellStyle, COLUMNS, Empty, Icon, PageHead, type Act, type Cell } from "../ui";
+import { CardHead, cellStyle, Empty, Icon, PageHead, type Act, type Cell } from "../ui";
+
+type Reference = { pos: { id: string; title: string; statement: string }[]; psos: { id: string; statement: string }[]; blooms: { level: string; name: string; verbs: string }[] };
 
 export default function MapScreen({ spec, patch, go }: Act) {
   const [ref, setRef] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<{ co: string; col: string } | null>(null);
   const [showOld, setShowOld] = useState(false);
+  const [annex, setAnnex] = useState<Reference | null>(null);
+  const [drawer, setDrawer] = useState(false);
+  // Columns, statements and Bloom's levels all come from config/po_pso.json (Annexure A) via the API.
   useEffect(() => {
-    call<any>("/reference").then((r) => setRef(Object.fromEntries([...r.pos.map((p: any) => [p.id, `${p.title}: ${p.statement}`]), ...r.psos.map((p: any) => [p.id, p.statement])]))).catch(() => {});
+    call<Reference>("/reference").then((r) => { setAnnex(r); setRef(Object.fromEntries([...r.pos.map((p) => [p.id, `${p.title}: ${p.statement}`]), ...r.psos.map((p) => [p.id, p.statement])])); }).catch(() => {});
   }, []);
+  const COLUMNS = annex ? [...annex.pos.map((p) => p.id), ...annex.psos.map((p) => p.id)] : [];
   if (!spec) return <Empty go={go} />;
   const m = spec.model;
   const map = m.map as Record<string, Record<string, Cell>>;
@@ -27,12 +33,22 @@ export default function MapScreen({ spec, patch, go }: Act) {
   return (
     <>
       <PageHead stage="03" label="Outcome Articulation" title="CO-PO-PSO Mapping Matrix">
-        <div className="flex gap-2 items-center text-label-sm">
+        <div className="flex gap-2 items-center text-label-sm flex-wrap">
+          <button className="btn h-8" onClick={() => setDrawer(!drawer)}><Icon name="menu_book" />PO / PSO reference</button>
           <span className="chip"><span className="w-3 h-3 rounded-sm bg-primary-container" />3 very strong</span>
           <span className="chip"><span className="w-3 h-3 rounded-sm bg-[#5b3fb5]" />2 strong</span>
           <span className="chip"><span className="w-3 h-3 rounded-sm bg-secondary-fixed" />1 moderate</span>
         </div>
       </PageHead>
+      {drawer && annex && (
+        <div className="fixed right-0 top-14 bottom-0 w-[380px] max-w-full bg-surface-container border-l border-outline-variant z-40 overflow-y-auto p-5">
+          <div className="flex items-center justify-between mb-3"><h2 className="text-headline-sm">Annexure A: POs, PSOs, Bloom's</h2><button className="btn h-8" onClick={() => setDrawer(false)} aria-label="Close reference"><Icon name="close" /></button></div>
+          {annex.pos.map((p) => <p key={p.id} className="text-body-sm mb-2"><span className="font-mono text-primary">{p.id}</span> <b>{p.title}.</b> <span className="text-on-surface-variant">{p.statement}</span></p>)}
+          {annex.psos.map((p) => <p key={p.id} className="text-body-sm mb-2"><span className="font-mono text-tertiary">{p.id}</span> <span className="text-on-surface-variant">{p.statement}</span></p>)}
+          <p className="text-label-sm uppercase tracking-wider text-on-surface-variant mt-4 mb-2">Bloom's levels</p>
+          {annex.blooms.map((b) => <p key={b.level} className="text-body-sm mb-1"><span className="font-mono text-primary">{b.level}</span> <b>{b.name}:</b> <span className="text-on-surface-variant">{b.verbs}</span></p>)}
+        </div>
+      )}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
         <div className="card overflow-x-auto">
           <CardHead icon="grid_on" title="Regenerated map" sub={`${m.course_outcomes.length} COs x ${COLUMNS.length} outcomes, ${filled} linked cells. Every value is checked against the mapping rules.`}

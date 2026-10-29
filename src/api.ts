@@ -3,7 +3,7 @@ export type Provider = "gemini" | "openrouter" | "anthropic";
 export type LlmSettings = { provider: Provider; key: string; model: string };
 
 const STORE = "specforge.llm";
-export const DEFAULT_MODELS: Record<Provider, string> = { gemini: "gemini-2.5-flash", openrouter: "google/gemini-2.5-flash", anthropic: "claude-sonnet-5-5" };
+export const DEFAULT_MODELS: Record<Provider, string> = { gemini: "gemini-3.5-flash-lite", openrouter: "google/gemini-2.5-flash", anthropic: "claude-sonnet-5-5" };
 
 export function loadSettings(): LlmSettings {
   try {
@@ -18,6 +18,7 @@ export function clearKey() { const s = loadSettings(); saveSettings({ ...s, key:
 // The role switcher's current user. The server looks up the role from this email.
 let currentUser = "";
 export function setUser(email: string) { currentUser = email; }
+export const currentUserEmail = () => currentUser;
 
 export async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const s = loadSettings();

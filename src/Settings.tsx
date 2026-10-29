@@ -5,6 +5,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState(loadSettings());
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [show, setShow] = useState(false);
 
   const update = (patch: Partial<typeof s>) => { const n = { ...s, ...patch }; setS(n); saveSettings(n); setMsg(null); };
 
@@ -28,7 +29,10 @@ export default function Settings({ onClose }: { onClose: () => void }) {
           </select>
         </label>
         <label>API key
-          <input type="password" autoComplete="off" value={s.key} onChange={(e) => update({ key: e.target.value })} placeholder="Paste your key" />
+          <span className="row" style={{ flexWrap: "nowrap" }}>
+            <input style={{ flex: 1 }} type={show ? "text" : "password"} autoComplete="off" spellCheck={false} value={s.key} onChange={(e) => update({ key: e.target.value })} placeholder="Paste your key" />
+            <button type="button" className="ghost" onClick={() => setShow(!show)} aria-label={show ? "Hide key" : "Show key"}>{show ? "Hide" : "Show"}</button>
+          </span>
         </label>
         <label>Model
           <input value={s.model} onChange={(e) => update({ model: e.target.value })} placeholder={DEFAULT_MODELS[s.provider]} />

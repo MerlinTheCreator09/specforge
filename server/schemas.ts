@@ -110,7 +110,8 @@ export const OutputSchema = z.object({
   }).strict(),
   course_outcomes: z.array(z.object({ id: z.string().regex(CO_KEY), statement: z.string(), bloom_level: z.number().int().min(1).max(6) }).strict()).min(1),
   units: z.array(z.object({ number: z.number().int(), title: z.string(), lab: z.string().nullable() }).strict()),
-  co_po_pso_map: z.record(z.string().regex(CO_KEY), z.record(z.string().regex(COLUMN_KEY), CellSchema)),
+  // Every CO lists every programme column; blank cells are null (the kit allows null or an omitted key).
+  co_po_pso_map: z.record(z.string().regex(CO_KEY), z.record(z.string().regex(COLUMN_KEY), CellSchema.nullable())),
   teaching_hours: z.object({ lectures: z.number(), lab: z.number(), tests_exams: z.number(), total: z.number() }).strict(),
   assessment: z.object({
     components: z.array(z.object({ name: z.string(), weight_percent: z.number() }).strict()),

@@ -1,7 +1,7 @@
 // App shell from the Stitch "Obsidian" design: top bar with the role switcher, a six-step lifecycle sidebar,
 // and one screen per step. All data comes from the backend; nothing about a course is written here.
 import { useEffect, useState } from "react";
-import { call, setUser } from "./api";
+import { call, loadSettings, setUser } from "./api";
 import Settings from "./Settings";
 import { Icon, type Spec, type User } from "./ui";
 import Upload from "./screens/Upload";
@@ -15,6 +15,7 @@ const STEPS = ["Upload", "Spec", "CO-PO-PSO Map", "Checks", "Workflow", "Export"
 
 export default function App() {
   const [settings, setSettings] = useState(false);
+  const [aiKey, setAiKey] = useState(() => Boolean(loadSettings().key));
   const [health, setHealth] = useState<"up" | "down" | "...">("...");
   const [users, setUsers] = useState<User[]>([]);
   const [me, setMe] = useState<User | null>(null);
@@ -66,6 +67,7 @@ export default function App() {
             </div>
           )}
           {spec && <span className="chip"><span className={`w-1.5 h-1.5 rounded-full ${spec.status === "Approved" ? "bg-tertiary" : spec.status === "Returned" ? "bg-error" : "bg-primary animate-pulse"}`} />{spec.status}</span>}
+          <button className="chip" onClick={() => setSettings(true)} title="AI provider key (stored only in this browser)"><span className={`w-1.5 h-1.5 rounded-full ${aiKey ? "bg-tertiary" : "bg-warning"}`} />AI: {aiKey ? "connected" : "no key"}</button>
           <span className="chip" title="API status"><span className={`w-1.5 h-1.5 rounded-full ${health === "up" ? "bg-tertiary" : "bg-error"}`} />API {health}</span>
           <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant text-on-surface-variant hover:text-on-surface" onClick={() => setSettings(true)} aria-label="Settings"><Icon name="settings" /></button>
         </div>
@@ -105,7 +107,7 @@ export default function App() {
           </div>
         </main>
       </div>
-      {settings && <Settings onClose={() => setSettings(false)} />}
+      {settings && <Settings onClose={() => { setSettings(false); setAiKey(Boolean(loadSettings().key)); }} />}
     </div>
   );
 }

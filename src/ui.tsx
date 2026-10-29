@@ -13,7 +13,6 @@ export type Act = {
   go: (step: number) => void;
 };
 
-export const COLUMNS = ["PO-1", "PO-2", "PO-3", "PO-4", "PO-5", "PO-6", "PO-7", "PO-8", "PO-9", "PO-10", "PO-11", "PSO-1", "PSO-2"];
 export const SEVERITY_COLOR: Record<string, string> = { high: "text-error", medium: "text-warning", low: "text-on-surface-variant" };
 
 export const Icon = ({ name, className = "" }: { name: string; className?: string }) => <span className={`icon ${className}`} aria-hidden="true">{name}</span>;

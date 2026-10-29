@@ -2,7 +2,7 @@
 // The output file and the spec document are both rendered from this one model.
 import { z } from "zod";
 import { bloomFromStatement } from "./bloom.js";
-import { rules } from "./config.js";
+import { COLUMNS, rules } from "./config.js";
 import { CellSchema, ParsedSpecSchema, type Defect, type Output, type ParsedBlueprint, type ParsedSpec } from "./schemas.js";
 import { detectTemplate, type TemplateId } from "./template.js";
 
@@ -140,7 +140,7 @@ export function toOutput(model: CourseModel, defects: Defect[]): Output {
     },
     course_outcomes: model.course_outcomes.map((c) => ({ id: c.id, statement: c.statement, bloom_level: Math.min(Math.max(c.bloom_level || 1, 1), 6) })),
     units: model.units.map((u) => ({ number: u.number, title: u.title, lab: model.template === "integrated" ? u.lab : null })),
-    co_po_pso_map: model.map,
+    co_po_pso_map: Object.fromEntries(model.course_outcomes.map((co) => [co.id, Object.fromEntries(COLUMNS.map((col) => [col, model.map[co.id]?.[col] ?? null]))])),
     teaching_hours: { lectures: t.lectures ?? 0, lab, tests_exams: t.tests_exams ?? 0, total: model.teaching_total },
     assessment: { components, co_coverage: model.assessment.coverage },
     defects,

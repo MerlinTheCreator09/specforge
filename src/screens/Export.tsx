@@ -1,10 +1,33 @@
 // Step 6: the filled official template as a live preview, and the submission files in the portal's format.
+import { currentUserEmail } from "../api";
 import Submission from "../Submission";
 import { CardHead, Empty, Icon, PageHead, type Act } from "../ui";
+
+// The nine numbered sections of the official template, in order, read from the rendered document itself.
+function sectionsInOrder(html: string): boolean {
+  const heads = [...new DOMParser().parseFromString(html, "text/html").querySelectorAll("h2")].map((h) => Number(h.textContent?.trim().match(/^(\d+)\./)?.[1]));
+  return [1, 2, 3, 4, 5, 6, 7, 8, 9].every((n, i) => heads.filter(Number.isFinite)[i] === n);
+}
+
+// Opens the document in a new tab and starts the browser's print dialog (Save as PDF).
+async function printPdf(id: string) {
+  const res = await fetch(`/api/v1/specs/${id}/export/spec.html?inline=1`, { headers: { "x-user-email": currentUserEmail() } });
+  const url = URL.createObjectURL(new Blob([await res.text()], { type: "text/html" }));
+  const w = window.open(url, "_blank");
+  w?.addEventListener("load", () => w.print());
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
 
 export default function Export({ spec, me, go }: Act) {
   if (!spec) return <Empty go={go} />;
   const approved = spec.status === "Approved";
+  const check = (id: string) => spec.report.checks.find((c: any) => c.id === id)?.ok;
+  const list: [string, boolean][] = [
+    ["Template sections complete (1-9, in order)", sectionsInOrder(spec.html)],
+    ["No leftover sample text", !!check("V7")],
+    ["Weights total 100%", !!check("V6")],
+    ["Every CO in Sections 3, 5 and 7", !!check("V1")],
+  ];
 
   return (
     <>
@@ -23,6 +46,10 @@ export default function Export({ spec, me, go }: Act) {
             <li><span className="font-mono text-primary">outputs/spec.html</span> · Spec document, 20 points</li>
             <li><span className="font-mono text-primary">outputs/specforge.zip</span> · your project with outputs/ inside (optional instead of the two files)</li>
           </ul>
+          <ul className="mb-4 space-y-1.5">{list.map(([t, ok]) => (
+            <li key={t} className={`text-body-sm flex items-center gap-1.5 ${ok ? "text-tertiary" : "text-error"}`}><Icon name={ok ? "check_circle" : "cancel"} className="text-[16px]" />{t}</li>
+          ))}</ul>
+          <button className="btn w-full justify-center mb-3" onClick={() => printPdf(spec.id)}><Icon name="print" />Print / Save as PDF</button>
           <Submission body={{ spec_id: spec.id }} disabled={me?.role !== "author"} />
           {me?.role !== "author" && <p className="text-body-sm text-outline mt-3 flex items-center gap-1"><Icon name="lock" />Switch to the Author to save submission files.</p>}
           <p className="text-body-sm text-outline mt-4">PDF: press "Download as PDF" inside the preview (browser print-to-PDF). The DRAFT watermark is shown only until approval and is never in the submission files.</p>

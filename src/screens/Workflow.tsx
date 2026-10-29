@@ -8,6 +8,14 @@ const LABEL: Record<string, [string, string]> = {
   submit: ["Submit for Review", "send"], start_review: ["Start Review", "rate_review"], forward: ["Forward to HOD", "forward"],
   return: ["Return to Author", "undo"], approve: ["Approve & Seal Specification", "verified"],
 };
+// Actions that exist at each stage and the role that may take them (the server enforces this; the UI only explains it).
+const NEXT: Record<string, [string, string][]> = {
+  Draft: [["submit", "Author"]], Returned: [["submit", "Author"]],
+  Submitted: [["start_review", "Reviewer"], ["forward", "Reviewer"], ["return", "Reviewer"]],
+  "Under Review": [["forward", "Reviewer"], ["return", "Reviewer"]],
+  "Pending HOD": [["approve", "HOD"], ["return", "HOD"]],
+  Approved: [],
+};
 const SECTIONS = ["Course Summary", "Size and Credits", "Course Outcomes", "Course Contents", "CO-PO-PSO Map", "Teaching and Learning", "Assessment", "Achieving COs", "Resources"];
 
 export default function Workflow({ spec, me, post, go }: Act) {
@@ -39,13 +47,18 @@ export default function Workflow({ spec, me, post, go }: Act) {
           <CardHead icon="admin_panel_settings" title="Role Action Console" sub={`Acting as ${me?.name} (${me?.role.toUpperCase()}). Switch roles in the top bar.`} />
           <textarea className="input w-full mb-3" rows={3} placeholder="Comment (required when returning)" value={comment} onChange={(e) => setComment(e.target.value)} />
           <div className="flex flex-wrap gap-2">
-            {spec.allowed_actions.map((a: string) => (
-              <button key={a} className={a === "return" ? "btn text-error" : "btn-primary"} onClick={async () => { await post(`/specs/${spec.id}/transitions`, { action: a, comment }); setComment(""); }}>
-                <Icon name={LABEL[a][1]} />{LABEL[a][0]}
-              </button>
-            ))}
+            {(NEXT[spec.status] ?? []).map(([a, who]) => {
+              const allowed = spec.allowed_actions.includes(a);
+              return (
+                <button key={a} disabled={!allowed} title={allowed ? undefined : `Only the ${who} can ${LABEL[a][0].toLowerCase()} at this stage.`}
+                  className={a === "return" ? "btn text-error" : "btn-primary"} onClick={async () => { await post(`/specs/${spec.id}/transitions`, { action: a, comment }); setComment(""); }}>
+                  <Icon name={LABEL[a][1]} />{LABEL[a][0]}
+                </button>
+              );
+            })}
           </div>
-          {spec.allowed_actions.length === 0 && <p className="text-body-sm text-on-surface-variant flex items-center gap-1"><Icon name="lock" />No actions for a {me?.role} while the spec is {spec.status}.</p>}
+          {spec.status === "Approved" ? <p className="text-body-sm text-tertiary flex items-center gap-1"><Icon name="verified" />Approved. No further actions.</p>
+            : spec.allowed_actions.length === 0 && <p className="text-body-sm text-on-surface-variant flex items-center gap-1"><Icon name="lock" />Waiting on another role. Hover a button to see who can act.</p>}
           <p className="text-body-sm text-outline mt-4">{spec.status === "Approved" ? "Approved: the DRAFT watermark is removed from the exports." : "Until approval, the spec and PDF carry a DRAFT watermark."}</p>
         </div>
 
