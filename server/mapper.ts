@@ -62,7 +62,7 @@ as the existing rows. Add a new link only when the syllabus or lab work clearly 
 
 Rules (follow all of them):
 - Levels: 3 very strong, 2 strong, 1 moderate. Leave a column out when there is no clear link.
-- A CO cannot map more strongly than its Bloom's level supports: an L1/L2 (remember/understand) CO maps at most 1 to PO-3 design, PO-4 investigation and PO-5 tools; L3 apply supports up to 2 on PO-3/PO-4; L4 analyse and L5 evaluate support up to 2 on PO-3; only create-level (L6 design/develop/build) COs reach 3 on PO-3.
+- A CO cannot map more strongly than its Bloom's level supports: an L1/L2 (remember/understand) CO does NOT map to PO-3 design, PO-4 investigation, PO-5 tools or PSO-2 software design at all (leave them out); it maps to knowledge outcomes such as PO-1 and PSO-1; L3 apply supports up to 2 on PO-3/PO-4; L4 analyse and L5 evaluate support up to 2 on PO-3; only create-level (L6 design/develop/build) COs reach 3 on PO-3.
 - PO-5 (tool usage) needs real tool use such as a lab or programming in the syllabus.
 - PO-6 to PO-10 need explicit evidence in the syllabus, lab work or assessment; for these give "evidence": an exact short quote from the course data below. No evidence means leave the column out.
 - Each cell has a one-sentence justification naming the CO's verb and the syllabus or lab evidence.
@@ -107,6 +107,7 @@ export function enforceRules(model: CourseModel, ai: z.infer<typeof AiMapSchema>
       if (value < 1) continue;
       if (value > 3) value = 3;
       const cap = bloomCeiling(column, level);
+      if (cap < 1) { fixes.push({ co: co.id, column, from: value, to: null, reason: `Bloom L${level} does not support ${column}` }); continue; }
       if (value > cap) { fixes.push({ co: co.id, column, from: value, to: cap, reason: `Bloom L${level} supports at most ${cap} on ${column}` }); value = cap; }
       if (rules.tool_use_columns.includes(column) && !tools) { fixes.push({ co: co.id, column, from: value, to: null, reason: "No lab or tool use in the syllabus" }); continue; }
       if (rules.evidence_required.includes(column)) {
