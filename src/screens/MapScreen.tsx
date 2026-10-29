@@ -32,7 +32,7 @@ export default function MapScreen({ spec, patch, go }: Act) {
 
   return (
     <>
-      <PageHead stage="03" label="Outcome Articulation" title="CO-PO-PSO Mapping Matrix">
+      <PageHead title="CO-PO-PSO map" sub="How strongly each course outcome supports each programme outcome. Select a cell to see the reason.">
         <div className="flex gap-2 items-center text-label-sm flex-wrap">
           <button className="btn h-8" onClick={() => setDrawer(!drawer)}><Icon name="menu_book" />PO / PSO reference</button>
           <span className="chip"><span className="w-3 h-3 rounded-sm bg-primary-container" />3 very strong</span>
@@ -51,7 +51,7 @@ export default function MapScreen({ spec, patch, go }: Act) {
       )}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
         <div className="card overflow-x-auto">
-          <CardHead icon="grid_on" title="Regenerated map" sub={`${m.course_outcomes.length} COs x ${COLUMNS.length} outcomes, ${filled} linked cells. Every value is checked against the mapping rules.`}
+          <CardHead icon="grid_on" title="Map" sub={`${filled} links across ${m.course_outcomes.length} course outcomes`}
             right={<button className="btn h-8" onClick={() => setShowOld(!showOld)}>{showOld ? "Hide" : "Show"} original map</button>} />
           <table className="w-full text-center border-collapse">
             <thead><tr><th className="p-2 text-left text-label-sm text-on-surface-variant">CO</th><th className="p-2 text-label-sm text-on-surface-variant">Bloom</th>
@@ -77,7 +77,7 @@ export default function MapScreen({ spec, patch, go }: Act) {
           </table>
           {showOld && (
             <div className="mt-6">
-              <p className="text-label-sm uppercase tracking-wider text-on-surface-variant mb-2">Original map in the uploaded spec (not used)</p>
+              <p className="text-label-sm uppercase tracking-wider text-on-surface-variant mb-2">Map in the uploaded specification (for comparison)</p>
               <table className="tbl text-center"><thead><tr><th>CO</th>{old.columns.map((c: string) => <th key={c}>{c}</th>)}</tr></thead>
                 <tbody>{old.rows.map((r: any) => <tr key={r.co}><td className="font-mono">{r.co}</td>{r.values.map((v: any, i: number) => <td key={i}>{v ?? ""}</td>)}</tr>)}</tbody></table>
             </div>

@@ -19,22 +19,22 @@ export default function Checks({ spec, go }: Act) {
 
   return (
     <>
-      <PageHead stage="04" label="Validation" title="Specification Rule Checks & Defect Log">
-        <button className="btn" onClick={() => download(`/specs/${spec.id}/export/validation_report.html`, "validation_report.html")}><Icon name="download" />validation_report.html</button>
+      <PageHead title="Checks and issues" sub="Rule checks on the corrected specification, and the problems found in the uploaded documents.">
+        <button className="btn" onClick={() => download(`/specs/${spec.id}/export/validation_report.html`, "validation_report.html")}><Icon name="download" />Validation report</button>
       </PageHead>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {[["Rules passed", report.summary.passed, "text-tertiary"], ["Rules failed", report.summary.failed, report.summary.failed ? "text-error" : "text-tertiary"], ["Defects found", output.defects.length, "text-primary"], ["High severity", count("high"), "text-error"]].map(([k, v, c]) => (
+        {[["Rules passed", report.summary.passed, "text-tertiary"], ["Rules failed", report.summary.failed, report.summary.failed ? "text-error" : "text-tertiary"], ["Issues found", output.defects.length, "text-primary"], ["High severity", count("high"), "text-error"]].map(([k, v, c]) => (
           <div key={String(k)} className="card !p-4"><p className="text-label-sm uppercase tracking-wider text-on-surface-variant">{k}</p><p className={`text-headline-lg font-mono ${c}`}>{v}</p></div>
         ))}
       </div>
 
       <div className="card mb-6">
-        <CardHead icon="rule" title="Rule checks (plain code, V1-V10)" sub="Run on the corrected spec after every change" />
+        <CardHead icon="rule" title="Rule checks" sub="Re-run after every change" />
         <ul className="divide-y divide-outline-variant">
           {report.checks.map((c: any) => (
             <li key={c.id} className="py-2 flex items-start gap-3">
               <Icon name={c.ok ? "check_circle" : "cancel"} className={c.ok ? "text-tertiary" : SEVERITY_COLOR[c.severity]} />
-              <div><p className="text-body-md"><span className="font-mono text-primary mr-2">{c.id}</span>{c.rule}</p>
+              <div><p className="text-body-md">{c.rule}</p>
                 {c.details.map((d: string, i: number) => <p key={i} className="text-body-sm text-on-surface-variant">{d}</p>)}</div>
             </li>
           ))}
@@ -42,7 +42,7 @@ export default function Checks({ spec, go }: Act) {
       </div>
 
       <div className="card mb-6">
-        <CardHead icon="bug_report" title="Defects in the uploaded documents" sub="Written to defects[] in specforge_output.json"
+        <CardHead icon="bug_report" title="Issues in the uploaded documents" sub="Each one with where it was found and how it was fixed"
           right={<div className="flex gap-1">{(["all", "high", "medium", "low"] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)} className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${filter === f ? "bg-primary text-on-primary" : "text-on-surface-variant border border-outline-variant"}`}>{f[0].toUpperCase() + f.slice(1)} ({f === "all" ? output.defects.length : count(f)})</button>
           ))}</div>} />
@@ -56,7 +56,7 @@ export default function Checks({ spec, go }: Act) {
 
       {(report.notes.length > 0 || report.dropped_sections.length > 0) && (
         <div className="card">
-          <CardHead icon="sync_alt" title="Changes and conflicts resolved" sub="What SpecForge changed and why" />
+          <CardHead icon="sync_alt" title="Changes and conflicts resolved" sub="What Curricula changed and why" />
           {report.dropped_sections.length > 0 && <p className="text-body-md mb-2">Sections not in the template (left out): <span className="text-warning">{report.dropped_sections.join(", ")}</span></p>}
           <ul className="list-disc pl-5 text-body-sm text-on-surface-variant space-y-1">{report.notes.map((n: string, i: number) => <li key={i}>{n}</li>)}</ul>
         </div>

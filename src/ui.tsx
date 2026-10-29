@@ -17,16 +17,12 @@ export const SEVERITY_COLOR: Record<string, string> = { high: "text-error", medi
 
 export const Icon = ({ name, className = "" }: { name: string; className?: string }) => <span className={`icon ${className}`} aria-hidden="true">{name}</span>;
 
-export function PageHead({ stage, label, title, children }: { stage: string; label: string; title: string; children?: ReactNode }) {
+export function PageHead({ title, sub, children }: { title: string; sub?: string; children?: ReactNode }) {
   return (
     <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 pt-2">
       <div>
-        <div className="flex items-center gap-2 mb-1.5">
-          <span className="font-mono text-label-md text-on-surface-variant">Lifecycle Stage {stage}</span>
-          <span className="text-outline-variant">/</span>
-          <span className="text-label-sm text-primary uppercase tracking-wider">{label}</span>
-        </div>
         <h1 className="text-headline-lg text-white tracking-tight">{title}</h1>
+        {sub && <p className="text-body-md text-on-surface-variant mt-1 max-w-3xl">{sub}</p>}
       </div>
       {children}
     </div>

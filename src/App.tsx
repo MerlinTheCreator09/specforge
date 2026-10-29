@@ -1,4 +1,4 @@
-// App shell from the Stitch "Obsidian" design: top bar with the role switcher, a six-step lifecycle sidebar,
+// App shell: top bar with the role switcher, a six-step sidebar,
 // and one screen per step. All data comes from the backend; nothing about a course is written here.
 import { useEffect, useState } from "react";
 import { call, loadSettings, setUser } from "./api";
@@ -11,12 +11,11 @@ import Checks from "./screens/Checks";
 import Workflow from "./screens/Workflow";
 import Export from "./screens/Export";
 
-const STEPS = ["Upload", "Spec", "CO-PO-PSO Map", "Checks", "Workflow", "Export"];
+const STEPS = ["Upload", "Specification", "CO-PO-PSO map", "Checks", "Review", "Export"];
 
 export default function App() {
   const [settings, setSettings] = useState(false);
   const [aiKey, setAiKey] = useState(() => Boolean(loadSettings().key));
-  const [health, setHealth] = useState<"up" | "down" | "...">("...");
   const [users, setUsers] = useState<User[]>([]);
   const [me, setMe] = useState<User | null>(null);
   const [spec, setSpec] = useState<Spec | null>(null);
@@ -25,7 +24,6 @@ export default function App() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    call("/health").then(() => setHealth("up")).catch(() => setHealth("down"));
     call<User[]>("/users").then((u) => { setUsers(u); setUser(u[0].email); setMe(u[0]); }).catch((e) => setError(e.message));
   }, []);
 
@@ -45,7 +43,7 @@ export default function App() {
         <div className="flex items-center gap-5">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center text-on-primary"><Icon name="architecture" /></div>
-            <span className="text-headline-sm tracking-tight">SpecForge</span>
+            <span className="text-headline-sm tracking-tight">Curricula</span>
             <span className="hidden md:inline text-body-sm text-on-surface-variant">Course Specification Builder</span>
           </div>
           <div className="h-4 w-px bg-outline-variant" />
@@ -67,15 +65,13 @@ export default function App() {
             </div>
           )}
           {spec && <span className="chip"><span className={`w-1.5 h-1.5 rounded-full ${spec.status === "Approved" ? "bg-tertiary" : spec.status === "Returned" ? "bg-error" : "bg-primary animate-pulse"}`} />{spec.status}</span>}
-          <button className="chip" onClick={() => setSettings(true)} title="AI provider key (stored only in this browser)"><span className={`w-1.5 h-1.5 rounded-full ${aiKey ? "bg-tertiary" : "bg-warning"}`} />AI: {aiKey ? "connected" : "no key"}</button>
-          <span className="chip" title="API status"><span className={`w-1.5 h-1.5 rounded-full ${health === "up" ? "bg-tertiary" : "bg-error"}`} />API {health}</span>
+          <button className="chip" onClick={() => setSettings(true)} title="AI provider key (stored only in this browser)"><span className={`w-1.5 h-1.5 rounded-full ${aiKey ? "bg-tertiary" : "bg-warning"}`} />{aiKey ? "AI provider set" : "Add AI provider"}</button>
           <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant text-on-surface-variant hover:text-on-surface" onClick={() => setSettings(true)} aria-label="Settings"><Icon name="settings" /></button>
         </div>
       </header>
 
       <aside className="fixed left-0 top-14 bottom-0 w-60 bg-surface-container border-r border-outline-variant z-40 hidden md:flex flex-col justify-between">
         <div className="py-3">
-          <div className="px-3 pb-2 mb-1 border-b border-outline-variant text-label-sm uppercase tracking-wider text-outline">Specification Lifecycle</div>
           <nav className="flex flex-col gap-1 px-1">
             {STEPS.map((s, i) => (
               <button key={s} onClick={() => setStep(i)}
@@ -86,9 +82,7 @@ export default function App() {
           </nav>
         </div>
         <div className="p-3 border-t border-outline-variant text-[11px] text-outline">
-          <div className="flex justify-between mb-1.5"><span>Signed in as</span><span className="text-on-surface">{me?.name ?? "-"}</span></div>
-          <div className="w-full bg-surface-container-high rounded-full h-1.5 overflow-hidden"><div className="bg-gradient-to-r from-primary to-primary-container h-1.5" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} /></div>
-          <div className="mt-1 flex justify-between"><span>Step {step + 1} of {STEPS.length}</span><span className="text-primary">{spec ? `${spec.output.defects.length} defects` : "No spec open"}</span></div>
+          <div className="flex justify-between"><span>Signed in as</span><span className="text-on-surface">{me?.name ?? "-"}</span></div>
         </div>
       </aside>
 

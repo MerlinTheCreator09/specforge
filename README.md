@@ -1,6 +1,6 @@
-# SpecForge - Course Specification Builder
+# Curricula – Course Specification Builder
 
-Built for the SpecForge Buildathon (RUAS Peenya, 29 Oct 2026) from the event starter.
+Curricula turns a messy course specification into a corrected one. Built for the SpecForge Buildathon (RUAS Peenya, 29 Oct 2026) from the event starter.
 
 - **Track:** coder (own editor with AI help)
 - **AI tools used:** Claude Code (Anthropic) for writing code; Google Stitch for the UI design (Obsidian theme), converted to React + Tailwind; Claude via the Anthropic API inside the app (bring your own key)

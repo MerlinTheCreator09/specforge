@@ -32,7 +32,7 @@ export default function SpecScreen({ spec, patch, post, go }: Act) {
 
   return (
     <>
-      <PageHead stage="02" label="Corrected Specification" title={`${m.header.code} ${m.header.title}`}>
+      <PageHead title={`${m.header.code} ${m.header.title}`} sub="Corrected specification">
         {!edit && <span className="chip"><Icon name="lock" />Read-only for this role or status</span>}
       </PageHead>
 
@@ -60,7 +60,7 @@ export default function SpecScreen({ spec, patch, post, go }: Act) {
 
         <Section n={1} title="Course Summary" open>
           <div className="flex gap-1 mb-3">
-            {(["corrected", "original"] as const).map((k) => <button key={k} className={`px-3 py-1.5 rounded-lg text-label-sm ${tab === k ? "bg-primary-container text-white" : "text-on-surface-variant border border-outline-variant"}`} onClick={() => setTab(k)}>{k === "corrected" ? "Corrected (SpecForge)" : "Original upload"}</button>)}
+            {(["corrected", "original"] as const).map((k) => <button key={k} className={`px-3 py-1.5 rounded-lg text-label-sm ${tab === k ? "bg-primary-container text-white" : "text-on-surface-variant border border-outline-variant"}`} onClick={() => setTab(k)}>{k === "corrected" ? "Corrected (Curricula)" : "Original upload"}</button>)}
           </div>
           {tab === "original" ? <p className="text-on-surface-variant">{spec.original.summary}</p> : edit ? (
             <><textarea className="input w-full" rows={5} value={summary} onChange={(e) => setSummary(e.target.value)} />

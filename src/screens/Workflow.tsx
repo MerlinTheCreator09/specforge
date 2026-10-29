@@ -6,7 +6,7 @@ import { CardHead, Empty, Icon, PageHead, type Act } from "../ui";
 const STATES = ["Draft", "Submitted", "Under Review", "Pending HOD", "Approved"];
 const LABEL: Record<string, [string, string]> = {
   submit: ["Submit for Review", "send"], start_review: ["Start Review", "rate_review"], forward: ["Forward to HOD", "forward"],
-  return: ["Return to Author", "undo"], approve: ["Approve & Seal Specification", "verified"],
+  return: ["Return to Author", "undo"], approve: ["Approve", "verified"],
 };
 // Actions that exist at each stage and the role that may take them (the server enforces this; the UI only explains it).
 const NEXT: Record<string, [string, string][]> = {
@@ -27,7 +27,7 @@ export default function Workflow({ spec, me, post, go }: Act) {
 
   return (
     <>
-      <PageHead stage="05" label="Governance" title="Course Specification Approval Workflow" />
+      <PageHead title="Review and approval" sub="The Author submits, the Reviewer checks and forwards, the HOD approves. Switch roles in the top bar." />
       <div className="card mb-6">
         <div className="flex flex-wrap items-center gap-2">
           {STATES.map((s, i) => (
@@ -44,7 +44,7 @@ export default function Workflow({ spec, me, post, go }: Act) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="card">
-          <CardHead icon="admin_panel_settings" title="Role Action Console" sub={`Acting as ${me?.name} (${me?.role.toUpperCase()}). Switch roles in the top bar.`} />
+          <CardHead icon="admin_panel_settings" title="Actions" sub={`Signed in as ${me?.name}`} />
           <textarea className="input w-full mb-3" rows={3} placeholder="Comment (required when returning)" value={comment} onChange={(e) => setComment(e.target.value)} />
           <div className="flex flex-wrap gap-2">
             {(NEXT[spec.status] ?? []).map(([a, who]) => {
@@ -63,7 +63,7 @@ export default function Workflow({ spec, me, post, go }: Act) {
         </div>
 
         <div className="card">
-          <CardHead icon="forum" title="Section comments" sub="Reviewer and HOD remarks; the Author responds here" />
+          <CardHead icon="forum" title="Comments" sub="Remarks on any section" />
           {spec.status !== "Approved" && (
             <div className="flex gap-2 mb-3">
               <select className="input" value={section} onChange={(e) => setSection(e.target.value)} aria-label="Section"><option value="">General</option>{SECTIONS.map((s, i) => <option key={s} value={i + 1}>{i + 1}. {s}</option>)}</select>
@@ -84,7 +84,7 @@ export default function Workflow({ spec, me, post, go }: Act) {
       </div>
 
       <div className="card">
-        <CardHead icon="history" title="Governance History & Audit Trail" sub="Every change with user, role, time and comment" />
+        <CardHead icon="history" title="History" sub="Every change, with who made it and when" />
         <div className="overflow-x-auto"><table className="tbl"><thead><tr><th>Time</th><th>User</th><th>Role</th><th>Action</th><th>State</th><th>Comment</th></tr></thead>
           <tbody>{[...spec.log].reverse().map((l: any, i: number) => (
             <tr key={i}><td className="font-mono whitespace-nowrap">{new Date(l.at).toLocaleString()}</td><td>{l.user}</td><td className="uppercase text-label-sm text-primary">{l.role}</td>
