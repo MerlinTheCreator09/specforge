@@ -6,7 +6,7 @@ import WordExtractor from "word-extractor";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { ApiError } from "./envelope.js";
 
-export type Extracted = { text: string; kind: "docx" | "doc" | "pdf" | "html" };
+export type Extracted = { text: string; kind: "docx" | "doc" | "pdf" | "html" | "text" };
 
 const MAX_CHARS = 120_000;
 
@@ -21,7 +21,9 @@ function detectKind(name: string, buf: Buffer): Extracted["kind"] {
   if (pdf) return "pdf";
   if (ext === "html" || ext === "htm") return "html";
   if (zip) return "docx";
-  throw new ApiError(400, "UNSUPPORTED_FILE", `Cannot read "${name}". Upload a .docx, .doc, .pdf or .html file.`);
+  // Plain text and Markdown (the kit's samples-as-text/*.md), as long as the bytes really are text.
+  if (["txt", "md", "markdown", "csv"].includes(ext) && !buf.subarray(0, 4096).includes(0)) return "text";
+  throw new ApiError(400, "UNSUPPORTED_FILE", `Cannot read "${name}". Upload a .docx, .doc, .pdf, .html, .md or .txt file.`);
 }
 
 function clean(s: string): string {
@@ -76,6 +78,7 @@ export async function extractText(name: string, buf: Buffer): Promise<Extracted>
     if (kind === "docx") text = htmlToText((await mammoth.convertToHtml({ buffer: buf })).value);
     else if (kind === "doc") text = docBodyToText((await new WordExtractor().extract(buf)).getBody());
     else if (kind === "pdf") text = (await pdfParse(buf)).text.split("\n").map(clean).filter(Boolean).join("\n");
+    else if (kind === "text") text = buf.toString("utf8").replace(/^﻿/, "").split(/\r?\n/).map((l) => l.trimEnd()).filter(Boolean).join("\n");
     else text = htmlToText(buf.toString("utf8"));
   } catch {
     throw new ApiError(400, "UNREADABLE_FILE", `Could not read "${name}". Is the file damaged or password protected?`);

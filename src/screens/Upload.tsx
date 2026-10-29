@@ -32,9 +32,9 @@ function Drop({ label, sub, icon, required, file, setFile }: { label: string; su
             <p className="text-label-md text-primary">Drop the file here, or click to browse</p>
           </div>
         )}
-        <p className="mt-4 pt-3 border-t border-outline-variant text-body-sm text-outline">Supported: .docx, .doc, .pdf, .html</p>
+        <p className="mt-4 pt-3 border-t border-outline-variant text-body-sm text-outline">Supported: .docx, .doc, .pdf, .html, .md, .txt</p>
       </div>
-      <input ref={input} type="file" hidden accept=".docx,.doc,.pdf,.html,.htm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      <input ref={input} type="file" hidden accept=".docx,.doc,.pdf,.html,.htm,.md,.txt" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
     </div>
   );
 }
