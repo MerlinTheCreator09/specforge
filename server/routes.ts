@@ -14,7 +14,7 @@ import { renderReport } from "./reportHtml.js";
 import { rateLimit, requireRole, currentUser } from "./security.js";
 import { newId, now, store, type SpecRecord } from "./store.js";
 import { renderSpec } from "./template.js";
-import { writeSubmission } from "./submission.js";
+import { readSubmissionFile, writeSubmission } from "./submission.js";
 import { allowedActions, assertCanEdit, nextStatus } from "./workflow.js";
 
 const upload = multer({
@@ -111,6 +111,17 @@ router.post("/submission", (req, res, next) => {
       files = lastScorerRun;
     }
     ok(res, writeSubmission(files.output, files.html));
+  } catch (e) { next(e); }
+});
+
+// Download one of the saved submission files. Only these three names are served, from outputs/ only.
+router.get("/submission/files/:name", (req, res, next) => {
+  try {
+    currentUser(req);
+    const file = readSubmissionFile(req.params.name);
+    res.setHeader("Content-Type", file.type);
+    res.setHeader("Content-Disposition", `attachment; filename="${file.name}"`);
+    res.send(file.body);
   } catch (e) { next(e); }
 });
 

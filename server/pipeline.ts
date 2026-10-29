@@ -1,13 +1,13 @@
 // The whole generation run, used by POST /generate (the scorer) and by the Author's upload.
 import { extractText } from "./extract.js";
 import type { LlmConfig } from "./llm.js";
-import { ensureEveryCoAssessed, ensurePracticalCoverage, generateMap, type MapFix } from "./mapper.js";
+import { ensureEveryCoAssessed, ensureLabComponentsUsed, ensurePracticalCoverage, generateMap, type MapFix } from "./mapper.js";
 import { buildModel, toOutput, type CourseModel } from "./model.js";
 import { parseBlueprint, parseSpec } from "./parse.js";
 import { reviewText } from "./review.js";
 import type { Defect, Output, ParsedBlueprint, ParsedSpec } from "./schemas.js";
 import { OutputSchema } from "./schemas.js";
-import { renderSpec } from "./template.js";
+import { renderSpec, SAMPLE_TOKENS } from "./template.js";
 import { findInputDefects, fixAchieving, validateModel, type Report } from "./validate.js";
 import { ApiError } from "./envelope.js";
 
@@ -34,6 +34,10 @@ export async function runPipeline(specFile: UploadedFile, blueprintFile: Uploade
     blueprintFile ? extractText(blueprintFile.name, blueprintFile.buffer) : Promise.resolve(null),
   ]);
   const [spec, blueprint] = await Promise.all([parseSpec(specText.text, cfg), bpText ? parseBlueprint(bpText.text, cfg) : Promise.resolve(null)]);
+  // Guard: the blank official template is not a course spec. Its sample strings are read from templates/ at startup.
+  // Both title and code must match the sample, so a real course that happens to share a title still goes through.
+  const isSample = (v: string) => SAMPLE_TOKENS.some((t) => t.toLowerCase() === v.trim().toLowerCase());
+  if (isSample(spec.title) && isSample(spec.code)) throw new ApiError(422, "TEMPLATE_UPLOADED", `The uploaded spec is the official template's sample course ("${spec.title}", ${spec.code}), not a course specification. Upload the existing course spec (for example sample_course_spec.docx) as the spec.`);
   if (!spec.course_outcomes.length && !blueprint?.course_outcomes.length) throw new ApiError(422, "NO_COURSE_OUTCOMES", "No course outcomes were found in the uploaded files.");
 
   const model = buildModel(spec, blueprint, inputId);
@@ -43,7 +47,7 @@ export async function runPipeline(specFile: UploadedFile, blueprintFile: Uploade
   model.summary = review.summary;
   model.resources = review.resources;
 
-  const notes = [...ensureEveryCoAssessed(model), ...ensurePracticalCoverage(model)];
+  const notes = [...ensureEveryCoAssessed(model), ...ensurePracticalCoverage(model), ...ensureLabComponentsUsed(model)];
   fixAchieving(model);
   const defects = dedupe([...findInputDefects(spec, blueprint, model, specText.text), ...review.defects]);
   return finish({ model, sources: { spec, blueprint }, notes, fixes: mapped.fixes, defects });

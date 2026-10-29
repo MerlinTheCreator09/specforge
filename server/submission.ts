@@ -2,7 +2,7 @@
 //   outputs/specforge_output.json  (Output file, 80 points)
 //   outputs/spec.html              (Spec document, 20 points)
 //   outputs/specforge.zip          (Your code: the project, with outputs/ inside, as the website describes)
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import AdmZip from "adm-zip";
@@ -69,4 +69,19 @@ export function writeSubmission(output: Output, html: string): SubmissionResult 
     ],
     checks,
   };
+}
+
+const SERVED: Record<string, string> = {
+  "specforge_output.json": "application/json; charset=utf-8",
+  "spec.html": "text/html; charset=utf-8",
+  "specforge.zip": "application/zip",
+};
+
+// Reads a saved submission file by its fixed name; any other name is refused, so no path can be smuggled in.
+export function readSubmissionFile(name: string): { name: string; type: string; body: Buffer } {
+  const type = Object.hasOwn(SERVED, name) ? SERVED[name] : undefined;
+  if (!type) throw new ApiError(404, "NOT_FOUND", "Files: specforge_output.json, spec.html, specforge.zip.");
+  const path = join(OUT, name);
+  if (!existsSync(path)) throw new ApiError(404, "NOT_SAVED", "Save the submission files first.");
+  return { name, type, body: readFileSync(path) };
 }

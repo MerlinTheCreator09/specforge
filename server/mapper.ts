@@ -108,7 +108,9 @@ export function enforceRules(model: CourseModel, ai: z.infer<typeof AiMapSchema>
 
 // A CO mapped 2 or 3 to PO-3/PO-5 must be assessed in a practical or assignment component.
 export function ensurePracticalCoverage(model: CourseModel): string[] {
-  const practical = model.assessment.groups.flatMap((g) => g.components.filter((c) => isPracticalComponent(c.name, c.practical)).map((c) => c.name));
+  // Prefer real lab/practical components over assignments when the course has them.
+  const practical = model.assessment.groups.flatMap((g) => g.components.filter((c) => isPracticalComponent(c.name, c.practical)).map((c) => c.name))
+    .sort((a, b) => Number(/lab|practical/i.test(b)) - Number(/lab|practical/i.test(a)));
   const notes: string[] = [];
   for (const co of model.course_outcomes) {
     const strong = rules.practical_required_columns.some((col) => (model.map[co.id]?.[col]?.level ?? 0) >= 2);
@@ -125,6 +127,25 @@ export function ensurePracticalCoverage(model: CourseModel): string[] {
       }
       notes.push(`${co.id} had strong PO-3/PO-5 links but the course has no practical or assignment component; lowered to 1.`);
     }
+  }
+  return notes;
+}
+
+// Lab components must assess something: give each empty lab/practical component the COs with lab or tool work
+// (strong PO-5 or PO-3), falling back to the applied-or-higher Bloom's levels.
+export function ensureLabComponentsUsed(model: CourseModel): string[] {
+  const notes: string[] = [];
+  const labs = model.assessment.groups.flatMap((g) => g.components).filter((c) => /lab|practical/i.test(c.name) || c.practical);
+  if (!labs.length) return notes;
+  const strong = (id: string) => rules.practical_required_columns.some((col) => (model.map[id]?.[col]?.level ?? 0) >= 2);
+  let picks = model.course_outcomes.filter((c) => strong(c.id)).map((c) => c.id);
+  if (!picks.length) picks = model.course_outcomes.filter((c) => c.bloom_level >= 3).map((c) => c.id);
+  if (!picks.length) return notes;
+  for (const lab of labs) {
+    const used = model.course_outcomes.some((c) => model.assessment.coverage[c.id]?.includes(lab.name));
+    if (used) continue;
+    for (const id of picks) model.assessment.coverage[id] = [...new Set([...(model.assessment.coverage[id] ?? []), lab.name])];
+    notes.push(`"${lab.name}" assessed no course outcome; it now assesses ${picks.join(", ")} (lab and tool work).`);
   }
   return notes;
 }
