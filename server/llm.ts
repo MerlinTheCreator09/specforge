@@ -1,5 +1,6 @@
 // The ONLY place that talks to an AI provider. Everything else calls generateJson().
 // The key arrives per request from the browser. Never store it, log it or return it.
+import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
 import type { Request } from "express";
 import type { ZodType } from "zod";
@@ -8,7 +9,7 @@ import { ApiError } from "./envelope.js";
 export type Provider = "gemini" | "openrouter" | "anthropic";
 export type LlmConfig = { provider: Provider; key: string; model: string };
 
-export const DEFAULT_MODELS = { gemini: "gemini-2.5-flash", openrouter: "google/gemini-2.5-flash", anthropic: "claude-sonnet-5-5" } as const;
+export const DEFAULT_MODELS = { gemini: "gemini-2.5-flash", openrouter: "google/gemini-2.5-flash", anthropic: "claude-opus-5-5" } as const;
 
 export function configFromRequest(req: Request): LlmConfig {
   const provider = String(req.header("x-llm-provider") ?? "").toLowerCase();
@@ -26,35 +27,60 @@ function networkError(): never {
   throw new ApiError(504, "PROVIDER_UNREACHABLE", "Could not reach the AI provider in time. Try again.");
 }
 
+// The provider's own reason, with the key scrubbed out and trimmed, so the user can act on it.
+function reason(text: unknown, cfg: LlmConfig): string {
+  let t = String(text ?? "").split(cfg.key).join("[key]").replace(/\s+/g, " ").trim();
+  try { const j = JSON.parse(t.replace(/^\d{3}\s*/, "")); t = j?.error?.message ?? j?.message ?? t; } catch { /* not JSON */ }
+  return t.slice(0, 300) || "no details";
+}
+
+function fail(status: number, cfg: LlmConfig, detail: string): never {
+  console.error(`[llm] ${cfg.provider} ${cfg.model} -> ${status || "error"}: ${detail}`); // never the key or headers
+  if (status === 429 || status === 529) throw new ApiError(429, "RATE_LIMITED", `The AI provider is busy or rate-limited (${detail}). Wait a minute or switch model.`);
+  if (status === 401 || status === 403) throw new ApiError(401, "BAD_KEY", `The provider rejected this key (${detail}). Check Settings.`);
+  if (status === 404) throw new ApiError(400, "BAD_MODEL", `The provider does not offer the model "${cfg.model}" (${detail}). Fix the model name in Settings.`);
+  if (status === 400) throw new ApiError(400, "PROVIDER_REJECTED", `The provider rejected the request: ${detail}`);
+  throw new ApiError(502, "PROVIDER_ERROR", `The AI provider failed${status ? ` (HTTP ${status})` : ""}: ${detail}`);
+}
+
 function stripFences(text: string): string {
   return text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
 }
 
+async function callAnthropic(prompt: string, cfg: LlmConfig): Promise<string> {
+  // Official SDK: retries 429/5xx/overloaded twice by itself; streaming avoids HTTP timeouts on long JSON replies.
+  const client = new Anthropic({ apiKey: cfg.key, timeout: TIMEOUT_MS, maxRetries: 2 });
+  try {
+    const msg = await client.beta.messages.stream({
+      model: cfg.model,
+      max_tokens: 32000,
+      output_config: { effort: "medium" },
+      // Server-side fallback: if a safety classifier declines, the API re-runs the request on a fallback model.
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      messages: [{ role: "user", content: prompt }],
+    } as any).finalMessage();
+    if (msg.stop_reason === "refusal") throw new ApiError(502, "AI_REFUSED", "The AI declined this request. Try again or pick another model.");
+    if (msg.stop_reason === "max_tokens") throw new ApiError(502, "AI_TRUNCATED", "The AI reply was cut off before it finished. Try again.");
+    return msg.content.flatMap((b: any) => (b.type === "text" ? [b.text as string] : [])).join("");
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    if (e instanceof Anthropic.APIConnectionError) networkError(); // includes timeouts
+    if (e instanceof Anthropic.APIError) fail(e.status ?? 0, cfg, reason(e.message, cfg));
+    throw e;
+  }
+}
+
 async function callProvider(prompt: string, cfg: LlmConfig): Promise<string> {
+  if (cfg.provider === "anthropic") return callAnthropic(prompt, cfg);
   if (cfg.provider === "gemini") {
     try {
       const ai = new GoogleGenAI({ apiKey: cfg.key });
       const r = await ai.models.generateContent({ model: cfg.model, contents: prompt, config: { responseMimeType: "application/json", abortSignal: AbortSignal.timeout(TIMEOUT_MS) } });
       return r.text ?? "";
     } catch (e: any) {
-      const status = Number(e?.status ?? e?.code ?? 0);
-      if (status === 429) throw new ApiError(429, "RATE_LIMITED", "The AI provider says too many requests. Wait a minute or switch model.");
-      if (status === 400 || status === 401 || status === 403) throw new ApiError(401, "BAD_KEY", "The provider rejected this key or model. Check Settings.");
-      throw new ApiError(502, "PROVIDER_ERROR", "The AI provider failed. Try again.");
+      fail(Number(e?.status ?? e?.code ?? 0), cfg, reason(e?.message, cfg));
     }
-  }
-  if (cfg.provider === "anthropic") {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "x-api-key": cfg.key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: cfg.model, max_tokens: 16000, messages: [{ role: "user", content: prompt }] }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    }).catch(networkError);
-    if (r.status === 429 || r.status === 529) throw new ApiError(429, "RATE_LIMITED", "The AI provider says too many requests. Wait a minute or switch model.");
-    if (r.status === 401 || r.status === 403) throw new ApiError(401, "BAD_KEY", "The provider rejected this key. Check Settings.");
-    if (!r.ok) throw new ApiError(502, "PROVIDER_ERROR", `The AI provider failed (HTTP ${r.status}). Check the model name.`);
-    const j: any = await r.json();
-    return (j?.content ?? []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
   }
   const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -62,9 +88,7 @@ async function callProvider(prompt: string, cfg: LlmConfig): Promise<string> {
     body: JSON.stringify({ model: cfg.model, messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   }).catch(networkError);
-  if (r.status === 429) throw new ApiError(429, "RATE_LIMITED", "The AI provider says too many requests. Wait a minute or switch model.");
-  if (r.status === 401 || r.status === 403) throw new ApiError(401, "BAD_KEY", "The provider rejected this key. Check Settings.");
-  if (!r.ok) throw new ApiError(502, "PROVIDER_ERROR", `The AI provider failed (HTTP ${r.status}). Check the model name.`);
+  if (!r.ok) fail(r.status, cfg, reason(await r.text().catch(() => ""), cfg));
   const j: any = await r.json();
   return j?.choices?.[0]?.message?.content ?? "";
 }
