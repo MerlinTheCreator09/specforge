@@ -14,6 +14,7 @@ import { renderReport } from "./reportHtml.js";
 import { rateLimit, requireRole, currentUser } from "./security.js";
 import { newId, now, store, type SpecRecord } from "./store.js";
 import { renderSpec } from "./template.js";
+import { writeSubmission } from "./submission.js";
 import { allowedActions, assertCanEdit, nextStatus } from "./workflow.js";
 
 const upload = multer({
@@ -85,7 +86,31 @@ router.post("/generate", aiLimit, upload, async (req, res, next) => {
     const cfg = configFromRequest(req);
     const { spec, blueprint } = filesFrom(req);
     const result = await runPipeline(spec, blueprint, cfg, inputIdFor(req.body?.input_id));
-    ok(res, { output: result.output, html: renderSpec(result.model, { watermark: false }), report: result.report });
+    const html = renderSpec(result.model, { watermark: false });
+    lastScorerRun = { output: result.output, html };
+    ok(res, { output: result.output, html, report: result.report });
+  } catch (e) { next(e); }
+});
+
+// The latest scorer-style run, kept in memory so the Author can save it as submission files.
+let lastScorerRun: { output: import("./schemas.js").Output; html: string } | null = null;
+
+// Writes outputs/specforge_output.json, outputs/spec.html and outputs/specforge.zip, the three things the
+// portal's Submit page takes. Source: a workflow spec ({ spec_id }) or the last POST /generate run ({ source: "scorer" }).
+router.post("/submission", (req, res, next) => {
+  try {
+    requireRole(req, "author");
+    const body = z.union([z.object({ spec_id: z.string() }).strict(), z.object({ source: z.literal("scorer") }).strict()]).safeParse(req.body);
+    if (!body.success) throw new ApiError(400, "INVALID_INPUT", "Send { spec_id } or { source: 'scorer' }.");
+    let files: { output: import("./schemas.js").Output; html: string };
+    if ("spec_id" in body.data) {
+      const rec = getSpec(body.data.spec_id);
+      files = { output: rec.result.output, html: renderSpec(rec.result.model, { watermark: false }) };
+    } else {
+      if (!lastScorerRun) throw new ApiError(404, "NO_RUN", "Run the scorer call first.");
+      files = lastScorerRun;
+    }
+    ok(res, writeSubmission(files.output, files.html));
   } catch (e) { next(e); }
 });
 

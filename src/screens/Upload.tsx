@@ -1,6 +1,7 @@
 // Step 1: upload the existing spec (+ optional blueprint), generate a Draft, or run the scorer's call directly.
 import { useEffect, useRef, useState } from "react";
-import { call, saveText } from "../api";
+import { call } from "../api";
+import Submission from "../Submission";
 import { CardHead, Icon, PageHead, type Spec, type User } from "../ui";
 
 type Props = { me: User | null; busy: boolean; current: Spec | null; run: (label: string, fn: () => Promise<void>) => Promise<void>; open: (id: string, step?: number) => void; onSettings: () => void };
@@ -71,10 +72,7 @@ export default function Upload({ me, busy, current, run, open, onSettings }: Pro
       {scorer && (
         <div className="card mt-6">
           <CardHead icon="task_alt" title="Scorer call succeeded" sub={`${scorer.output.course_outcomes.length} COs, ${scorer.output.units.length} units, ${scorer.output.defects.length} defects, template ${scorer.output.template}, input_id ${scorer.output.input_id}`} />
-          <div className="flex flex-wrap gap-3">
-            <button className="btn-primary" onClick={() => saveText(JSON.stringify(scorer.output, null, 2), "specforge_output.json")}><Icon name="data_object" />Save specforge_output.json</button>
-            <button className="btn" onClick={() => saveText(scorer.html, "spec.html", "text/html")}><Icon name="html" />Save spec.html</button>
-          </div>
+          <Submission body={{ source: "scorer" }} disabled={me?.role !== "author"} />
         </div>
       )}
 
