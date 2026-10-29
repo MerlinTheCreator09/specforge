@@ -60,7 +60,9 @@ export function findInputDefects(spec: ParsedSpec, bp: ParsedBlueprint | null, m
     // Lab components (lab CE, lab exam / LSEE) that assess no defined CO: one finding for the table.
     const isLab = (c: { name: string; practical: boolean }) => c.practical || /lab|practical|\blse/i.test(c.name);
     const emptyLabs = comps.filter(isLab).filter((c) => ![...covered.entries()].some(([id, list]) => defined.has(id) && list.includes(c.name))).map((c) => c.name);
-    if (emptyLabs.length) out.push(d("CO_ASSESSMENT_MISMATCH", "spec", 7, emptyLabs, `The laboratory component${emptyLabs.length > 1 ? "s" : ""} ${emptyLabs.map((n) => `"${n}"`).join(" and ")} assess${emptyLabs.length > 1 ? "" : "es"} no defined course outcome.`, "Assigned the COs with lab or tool work to the laboratory components."));
+    // refs use CO tokens (as the schema describes): the undefined COs those lab columns are ticked for.
+    const labRefs = [...covered.entries()].filter(([id, list]) => !defined.has(id) && list.some((n) => emptyLabs.includes(n))).map(([id]) => id);
+    if (emptyLabs.length) out.push(d("CO_ASSESSMENT_MISMATCH", "spec", 7, labRefs, `The laboratory component${emptyLabs.length > 1 ? "s" : ""} ${emptyLabs.map((n) => `"${n}"`).join(" and ")} assess${emptyLabs.length > 1 ? "" : "es"} no defined course outcome.`, "Assigned the COs with lab or tool work to the laboratory components."));
   }
   const groupWeights = spec.assessment.groups.map((g) => g.weight_percent);
   if (groupWeights.length && groupWeights.every((w) => w != null)) {
