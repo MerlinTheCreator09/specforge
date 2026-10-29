@@ -15,13 +15,35 @@ export function loadSettings(): LlmSettings {
 export function saveSettings(s: LlmSettings) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch { /* ignore */ } }
 export function clearKey() { const s = loadSettings(); saveSettings({ ...s, key: "" }); }
 
+// The role switcher's current user. The server looks up the role from this email.
+let currentUser = "";
+export function setUser(email: string) { currentUser = email; }
+
 export async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const s = loadSettings();
   const headers: Record<string, string> = { ...(init.headers as Record<string, string>) };
+  if (currentUser) headers["x-user-email"] = currentUser;
   if (init.body && !(init.body instanceof FormData)) headers["Content-Type"] = "application/json";
   if (s.key) { headers["x-llm-provider"] = s.provider; headers["x-llm-key"] = s.key; headers["x-llm-model"] = s.model || DEFAULT_MODELS[s.provider]; }
   const res = await fetch(`/api/v1${path}`, { ...init, headers });
   const json = await res.json().catch(() => null);
   if (!json?.success) throw new Error(json?.error?.message ?? `Request failed (${res.status})`);
   return json.data as T;
+}
+
+// Exports need the user header, so fetch them and hand the browser a blob.
+export async function download(path: string, filename: string) {
+  const res = await fetch(`/api/v1${path}`, { headers: { "x-user-email": currentUser } });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function saveText(text: string, filename: string, type = "application/json") {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

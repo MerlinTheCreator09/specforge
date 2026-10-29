@@ -12,3 +12,10 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .panel h2 { margin: 0; } .hint { margin: 0; font-size: .85rem; opacity: .75; }
 label { display: grid; gap: 4px; font-size: .9rem; } input, select { padding: 8px; border-radius: 6px; border: 1px solid #8886; font: inherit; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; } .good { color: #15803d; } .bad { color: #b91c1c; }
+.card { background: #fff; color: #1d1d1f; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 16px 0; }
+.card h2 { margin: 0 0 10px; font-size: 18px; color: #1a3d7c; }
+.err { color: #b3261e; font-weight: 600; }
+table { border-collapse: collapse; width: 100%; }
+td, th { border: 1px solid #ddd; padding: 4px 6px; text-align: left; vertical-align: top; font-size: 13px; }
+table.map td, table.map th { text-align: center; }
+label { display: block; margin: 6px 0; }
