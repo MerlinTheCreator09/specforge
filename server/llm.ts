@@ -78,6 +78,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Busy or flaky providers (503 "high demand", 429, 5xx, timeouts) are usually fine a few seconds later.
 // Anthropic's SDK retries on its own; Gemini and OpenRouter get the same treatment here. If a chosen Gemini model
 // stays overloaded, fall back once to the default Gemini model so a scorer run still completes.
+// Temperature 0 on Gemini and OpenRouter: the same inputs give the same map and defects, so the organisers' run
+// reproduces what was tested. (Claude Sonnet 5.5 rejects non-default sampling values, so Anthropic keeps its default.)
 async function callProvider(prompt: string, cfg: LlmConfig): Promise<string> {
   if (cfg.provider === "anthropic") return callAnthropic(prompt, cfg);
   for (let attempt = 0; ; attempt++) {
@@ -100,7 +102,7 @@ async function callOnce(prompt: string, cfg: LlmConfig): Promise<string> {
   if (cfg.provider === "gemini") {
     try {
       const ai = new GoogleGenAI({ apiKey: cfg.key });
-      const r = await ai.models.generateContent({ model: cfg.model, contents: prompt, config: { responseMimeType: "application/json", abortSignal: AbortSignal.timeout(TIMEOUT_MS) } });
+      const r = await ai.models.generateContent({ model: cfg.model, contents: prompt, config: { responseMimeType: "application/json", temperature: 0, abortSignal: AbortSignal.timeout(TIMEOUT_MS) } });
       return r.text ?? "";
     } catch (e: any) {
       fail(Number(e?.status ?? e?.code ?? 0), cfg, reason(e?.message, cfg));
@@ -109,7 +111,7 @@ async function callOnce(prompt: string, cfg: LlmConfig): Promise<string> {
   const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${cfg.key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: cfg.model, messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } }),
+    body: JSON.stringify({ model: cfg.model, messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" }, temperature: 0 }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   }).catch(networkError);
   if (!r.ok) fail(r.status, cfg, reason(await r.text().catch(() => ""), cfg));
